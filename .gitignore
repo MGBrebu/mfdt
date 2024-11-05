@@ -1,2 +1,2 @@
-test-files
+!test-files/place_files_to_test_here.txt
 test-files/*
