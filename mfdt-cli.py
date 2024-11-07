@@ -2,6 +2,7 @@ import hashlib
 import os
 import requests
 
+# Hashes a single file given a file path and hash algorithm, defaults to MD5, returns file's hash value
 def hash_file(file_path, algorithm='md5'):
     print(f"Calculating '{file_path}'...")
     with open(file_path, 'rb') as f:
@@ -9,6 +10,8 @@ def hash_file(file_path, algorithm='md5'):
     print(f"File hash calculated: '{digest.hexdigest()}'")
     return digest.hexdigest()
 
+# Hashes multiple files given a directory path and hash algorithm, defaults to MD5, returns dictionary of file paths and hash values
+# Calls hash_file() for each file in the directory
 def hash_directory(directory_path, algorithm='md5'):
     print(f"Hashing files in '{directory_path}'...")
     hash_values = {}
@@ -19,17 +22,20 @@ def hash_directory(directory_path, algorithm='md5'):
             hash_values[file_path] = file_hash
     print("# Hashing directory complete")
     return hash_values
-            
+           
+# Checks a hash value on CIRCL hash lookup service, returns the result if the hash is known, otherwise returns None
 def check_circl_hashlookup(hash_value, hash_algorithm='md5'):
     print(f"Checking '{hash_value}' on CIRCL hash lookup...")
     url = f"https://hashlookup.circl.lu/lookup/{hash_algorithm}/{hash_value}"
     response = requests.get(url)
     if response.status_code == 200:
         print("Hash lookup complete, file is known")
-        return response.json()  # Returns details if the hash is found
+        return response.json()
     print("Hash lookup complete, file is unknown")
     return None
 
+# Checks a hash value on VirusTotal, returns the result if the check is successful, otherwise returns None
+# NB: Does not check if the file is safe, simply returns the full response
 def check_virustotal(hash, api_key):
     print(f"Checking '{hash}' on VirusTotal...")
     url = f"https://www.virustotal.com/api/v3/files/{hash}"
@@ -42,7 +48,21 @@ def check_virustotal(hash, api_key):
     print("VirusTotal lookup failed.")
     return None
 
+# Checks a directory for malicious files using above functions
+# Calls hash_directory() to get hash values for all files in the directory
+# Calls check_circl_hashlookup() to check if the hash is known
+# If the hash is known, appends the file to the safe list
+# Otherwise, calls check_virustotal() to check if the file is malicious
+# If the file is safe, appends the file to the safe list
+# If the file is malicious, appends the file to the malicious list
+# Otherwise, appends the file to the unknown list
+# Returns a report dictionary with the lists of malicious, safe, and unknown files
 def check_directory(directory_path, api_key):
+    report = {
+        "malicious": [],
+        "safe": [],
+        "unknown": []
+    }
     print(f"-- Beginning malicious file detection on '{directory_path}'...")
     directory_path = 'test-files'
     hash_values = hash_directory(directory_path)
@@ -67,7 +87,10 @@ def check_directory(directory_path, api_key):
                 print(f"Appending '{file}' as unknown")
                 report["unknown"].append(file)
     print("# Malicious file detection complete")
+    return report
 
+# Generates a report given a report dictionary and output path
+# Includes lists of malicious, safe, and unknown files as determined by check_directory()
 def generate_report(report, output_path):
     print(f"-- Generating report")
     with open(output_path, 'w') as f:
@@ -102,13 +125,8 @@ def generate_report(report, output_path):
         f.write("End of Report\n")
     print(f"# Report generated at '{output_path}'")
 
-#----------------------------------------------
-
-report = {
-    "malicious": [],
-    "safe": [],
-    "unknown": []
-}
-
-check_directory('test-files', 'ef395087293e63f72a7838f86ee73431166b2e87fc8d225b1b7a8dcd007b191d')
-generate_report(report, 'reports/report.txt')
+# Main
+generate_report(
+    check_directory('test-files', 'ef395087293e63f72a7838f86ee73431166b2e87fc8d225b1b7a8dcd007b191d'),
+    'reports/report.txt'
+)
