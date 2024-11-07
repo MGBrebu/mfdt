@@ -1,0 +1,15 @@
+Malicious File Detection Report
+========================================
+
+Malicious Files:
+None
+
+Safe Files:
+ - test-files\test.txt
+ - test-files\Update.exe
+
+Unknown Files:
+ - test-files\place_files_to_test_here.txt
+
+========================================
+End of Report
