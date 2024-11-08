@@ -63,9 +63,12 @@ def classify_file(file_path, hash, api_key):
     
     circl_result = check_circl_hashlookup(hash)
     if circl_result:
-        print(circl_result)
-        classification = "Safe"
-        file_details['circl'] = "Known"
+        if circl_result.get("Known Malicious"):
+            classification = "Malicious"
+            file_details['circl'] = "Known Malicious"
+        else:
+            classification = "Safe"
+            file_details['circl'] = "Known Safe"
     else:
         file_details['circl'] = "Unknown"
         vt_result = check_virustotal(hash, api_key)
