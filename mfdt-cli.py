@@ -2,6 +2,7 @@ import hashlib
 import os
 import requests
 import datetime
+import argparse
 
 # Hashes a single file given a file path and hash algorithm, defaults to MD5, returns file's hash value
 def hash_file(file_path, algorithm='md5'):
@@ -56,7 +57,7 @@ def classify_file(file_path, hash, api_key):
             "file": file_path,
             "hash": hash,
             "circl": None,
-            "virustotal": None
+            "virustotal": "N/A"
     }
     classification = None
     
@@ -82,7 +83,7 @@ def classify_file(file_path, hash, api_key):
 
 # Uses classify_file() to classify all files in a directory given a directory path and an API key for VirusTotal
 # Returns a report dictionary with lists of malicious, safe, and unknown files and their details
-def classify_directory(directory_path, report, api_key):
+def classify_directory(directory_path, api_key):
     report = {
         "malicious": [
         ],
@@ -116,6 +117,21 @@ def generate_report(report, report_dir):
                 f.write(f"\t\tVirusTotal: {file['virustotal']}\n")
             f.write("\n")
 
-# Main
-report = classify_directory("test-files", "ef395087293e63f72a7838f86ee73431166b2e87fc8d225b1b7a8dcd007b191d")
-generate_report(report, "reports")
+def main():
+    parser = argparse.ArgumentParser(description="Malicious File Detection Tool")
+    
+    parser.add_argument('--scan-dir', '-d', required=True, default='./test-files', help='Directory to scan')
+    parser.add_argument('--api-key', '-k', required=True, help='VirusTotal API Key')
+    parser.add_argument('--report-dir', '-r', default='./reports', help='Directory to save the report')
+
+    args = parser.parse_args()
+
+    scan_dir = args.scan_dir
+    report_dir = args.report_dir
+    api_key = args.api_key
+
+    report_dict = classify_directory(scan_dir, api_key)
+    generate_report(report_dict, report_dir)
+
+if __name__ == "__main__":
+    main()
