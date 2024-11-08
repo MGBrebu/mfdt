@@ -128,6 +128,9 @@ def generate_report(report, report_dir):
             f.write("\n")
     print("# Report generated")
 
+# Main function handles sets up and handles arguement parsing
+# Calls classify_directory() on the scan directory specified with the API key specified
+# Calls generate_report() on the report dictionary returned by classify_directory()
 def main():
     parser = argparse.ArgumentParser(description="Malicious File Detection Tool")
     
