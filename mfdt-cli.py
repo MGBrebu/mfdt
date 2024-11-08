@@ -1,6 +1,7 @@
 import hashlib
 import os
 import requests
+import datetime
 
 # Hashes a single file given a file path and hash algorithm, defaults to MD5, returns file's hash value
 def hash_file(file_path, algorithm='md5'):
@@ -48,85 +49,73 @@ def check_virustotal(hash, api_key):
     print("VirusTotal lookup failed.")
     return None
 
-# Checks a directory for malicious files using above functions
-# Calls hash_directory() to get hash values for all files in the directory
-# Calls check_circl_hashlookup() to check if the hash is known
-# If the hash is known, appends the file to the safe list
-# Otherwise, calls check_virustotal() to check if the file is malicious
-# If the file is safe, appends the file to the safe list
-# If the file is malicious, appends the file to the malicious list
-# Otherwise, appends the file to the unknown list
-# Returns a report dictionary with the lists of malicious, safe, and unknown files
-def check_directory(directory_path, api_key):
-    report = {
-        "malicious": [],
-        "safe": [],
-        "unknown": []
+# Classifies a file as malicious, safe, or unknown given a file path, hash value, and API key for VirusTotal
+# Returns the classification and a dictionary of file details including file path, hash, CIRCL result, and VirusTotal result and link
+def classify_file(file_path, hash, api_key):
+    file_details = {
+            "file": file_path,
+            "hash": hash,
+            "circl": None,
+            "virustotal": None
     }
-    print(f"-- Beginning malicious file detection on '{directory_path}'...")
-    directory_path = 'test-files'
-    hash_values = hash_directory(directory_path)
-    for file in hash_values:
-        print(f"- Checking '{file}'...")
-        # Check NSRL
-        nsrl_result = check_circl_hashlookup(hash_values[file])
-        if nsrl_result:
-            print(f"Appending '{file}' as safe")
-            report["safe"].append(file)
-        else:
-            # Check VirusTotal
-            virustotal_result = check_virustotal(hash_values[file], api_key)
-            if virustotal_result:
-                if virustotal_result.get('malicious') > 0:
-                    print(f"Appending '{file}' as malicious")
-                    report["malicious"].append(file)
-                else:
-                    print(f"Appending '{file}' as safe")
-                    report["safe"].append(file)
+    classification = None
+    
+    circl_result = check_circl_hashlookup(hash)
+    if circl_result:
+        classification = "Safe"
+        file_details['circl'] = "Known"
+    else:
+        file_details['circl'] = "Unknown"
+        vt_result = check_virustotal(hash, api_key)
+        if vt_result:
+            if vt_result.get('malicious', 0) > 0:
+                classification = "Malicious"
+                file_details['virustotal'] = "Malicious, " + f"https://www.virustotal.com/gui/file/{hash}/detection"
             else:
-                print(f"Appending '{file}' as unknown")
-                report["unknown"].append(file)
-    print("# Malicious file detection complete")
+                classification = "Safe"
+                file_details['virustotal'] = "Safe, " + f"https://www.virustotal.com/gui/file/{hash}/detection"
+        else:
+            classification = "Unknown"
+            file_details['virustotal'] = "Unknown, " + f"https://www.virustotal.com/gui/file/{hash}/detection"
+
+    return classification, file_details
+
+# Uses classify_file() to classify all files in a directory given a directory path and an API key for VirusTotal
+# Returns a report dictionary with lists of malicious, safe, and unknown files and their details
+def classify_directory(directory_path, report, api_key):
+    report = {
+        "malicious": [
+        ],
+        "safe": [
+        ],
+        "unknown": [
+        ]
+    }
+    hash_values = hash_directory(directory_path)
+    for file_path, hash in hash_values.items():
+        classification, file_details = classify_file(file_path, hash, api_key)
+        report[classification.lower()].append(file_details)
     return report
 
-# Generates a report given a report dictionary and output path
-# Includes lists of malicious, safe, and unknown files as determined by check_directory()
-def generate_report(report, output_path):
-    print(f"-- Generating report")
-    with open(output_path, 'w') as f:
-        f.write("Malicious File Detection Report\n")
-        f.write("="*40 + "\n\n")
-        
-        f.write("Malicious Files:\n")
-        if report["malicious"]:
-            for file in report["malicious"]:
-                f.write(f" - {file}\n")
-        else:
-            f.write("None\n")
-        f.write("\n")
-
-        f.write("Safe Files:\n")
-        if report["safe"]:
-            for file in report["safe"]:
-                f.write(f" - {file}\n")
-        else:
-            f.write("None\n")
-        f.write("\n")
-
-        f.write("Unknown Files:\n")
-        if report["unknown"]:
-            for file in report["unknown"]:
-                f.write(f" - {file}\n")
-        else:
-            f.write("None\n")
-        f.write("\n")
-        
-        f.write("="*40 + "\n")
-        f.write("End of Report\n")
-    print(f"# Report generated at '{output_path}'")
+# Generates a report textfile given a report dictionary and a directory path to save the report
+def generate_report(report, report_dir):
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    if not os.path.exists(report_dir):
+        os.makedirs(report_dir)
+    with open(f"{report_dir}/report_{timestamp}.txt", 'w') as f:
+        f.write(f"Total malicious files: {len(report['malicious'])}\n")
+        f.write(f"Total safe files: {len(report['safe'])}\n")
+        f.write(f"Total unknown files: {len(report['unknown'])}\n")
+        for classification, files in report.items():
+            f.write("========================================\n")
+            f.write(f"{classification.capitalize()} files:\n")
+            for file in files:
+                f.write(f"\tFile: {file['file']}\n")
+                f.write(f"\t\tHash: {file['hash']}\n")
+                f.write(f"\t\tCIRCL: {file['circl']}\n")
+                f.write(f"\t\tVirusTotal: {file['virustotal']}\n")
+            f.write("\n")
 
 # Main
-generate_report(
-    check_directory('test-files', 'ef395087293e63f72a7838f86ee73431166b2e87fc8d225b1b7a8dcd007b191d'),
-    'reports/report.txt'
-)
+report = classify_directory("test-files", "ef395087293e63f72a7838f86ee73431166b2e87fc8d225b1b7a8dcd007b191d")
+generate_report(report, "reports")
