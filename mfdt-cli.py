@@ -62,11 +62,14 @@ def classify_file(file_path, hash, api_key):
     classification = None
     
     circl_result = check_circl_hashlookup(hash)
+    circl_malicous = circl_result.get("KnownMalicious", False)
+    circl_found = circl_result.get("Found", False)
+
     if circl_result:
-        if circl_result.get("Known Malicious"):
+        if circl_malicous:
             classification = "Malicious"
             file_details['circl'] = "Known Malicious"
-        else:
+        elif circl_found:
             classification = "Safe"
             file_details['circl'] = "Known Safe"
     else:
