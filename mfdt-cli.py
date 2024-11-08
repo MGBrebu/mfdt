@@ -63,6 +63,7 @@ def classify_file(file_path, hash, api_key):
     
     circl_result = check_circl_hashlookup(hash)
     if circl_result:
+        print(circl_result)
         classification = "Safe"
         file_details['circl'] = "Known"
     else:
